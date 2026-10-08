@@ -3,7 +3,75 @@
 import csv
 import json
 import os
+import statistics
+import tempfile
+from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
+
+from calculator.validators import is_valid_operator, require_finite_real
+
+FIELDS = ("id", "operand1", "operand2", "operator", "result", "timestamp")
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+@contextmanager
+def atomic_text_file(filename, newline=None):
+    """Replace a destination only after its complete contents are safely written."""
+    destination = Path(filename)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline=newline,
+            dir=destination.parent, prefix=f".{destination.name}.", suffix=".tmp",
+            delete=False,
+        ) as file:
+            temporary_name = file.name
+            yield file
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary_name, destination)
+    finally:
+        if temporary_name is not None:
+            Path(temporary_name).unlink(missing_ok=True)
+
+
+def validate_records(records):
+    """Validate the full JSON schema before replacing any in-memory history."""
+    if not isinstance(records, list):
+        raise ValueError("History must be a JSON array of operation records")
+    seen_ids = set()
+    validated = []
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict) or set(record) != set(FIELDS):
+            raise ValueError(f"Record {index} must contain exactly: {', '.join(FIELDS)}")
+        record_id = record["id"]
+        if isinstance(record_id, bool) or not isinstance(record_id, int) or record_id < 1:
+            raise ValueError(f"Record {index} must have a positive integer id")
+        if record_id in seen_ids:
+            raise ValueError(f"Record {index} has a duplicate id")
+        seen_ids.add(record_id)
+        for field in ("operand1", "operand2", "result"):
+            require_finite_real(record[field], f"Record {index} {field}")
+        if not is_valid_operator(record["operator"]):
+            raise ValueError(f"Record {index} has an unsupported operator")
+        timestamp = record["timestamp"]
+        if not isinstance(timestamp, str):
+            raise ValueError(f"Record {index} must have a timestamp string")
+        try:
+            parsed_timestamp = datetime.strptime(timestamp, TIMESTAMP_FORMAT)
+        except ValueError as error:
+            raise ValueError(f"Record {index} timestamp must use YYYY-MM-DD HH:MM:SS") from error
+        if parsed_timestamp.strftime(TIMESTAMP_FORMAT) != timestamp:
+            raise ValueError(f"Record {index} timestamp must use YYYY-MM-DD HH:MM:SS")
+        validated.append(record.copy())
+    return validated
+
+
+def reject_json_constant(value):
+    """Reject JSON's nonstandard NaN and Infinity extensions."""
+    raise ValueError(f"History contains a non-finite number: {value}")
 
 
 class HistoryManager:
@@ -15,21 +83,26 @@ class HistoryManager:
 
     def add_record(self, operand1, operand2, operator, result):
         """Add one operation record to history and return the created record."""
+        require_finite_real(operand1, "First operand")
+        require_finite_real(operand2, "Second operand")
+        require_finite_real(result, "Result")
+        if not is_valid_operator(operator):
+            raise ValueError("Invalid operator")
         record = {
             "id": self._next_id,
             "operand1": operand1,
             "operand2": operand2,
             "operator": operator,
             "result": result,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.now().strftime(TIMESTAMP_FORMAT),
         }
         self.history.append(record)
         self._next_id += 1
-        return record
+        return record.copy()
 
     def get_all(self):
         """Return all history records."""
-        return self.history
+        return [record.copy() for record in self.history]
 
     def clear_history(self):
         """Remove all history records and reset the next record id."""
@@ -37,49 +110,27 @@ class HistoryManager:
         self._next_id = 1
 
     def save_to_json(self, filename):
-        """Save operation history to a JSON file."""
-        directory = os.path.dirname(filename)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-
-        with open(filename, "w", encoding="utf-8") as file:
-            json.dump(self.history, file, indent=4)
+        """Atomically save valid history; preserve the old file if saving fails."""
+        records = validate_records(self.history)
+        with atomic_text_file(filename) as file:
+            json.dump(records, file, indent=4, allow_nan=False)
+            file.write("\n")
 
     def load_from_json(self, filename):
-        """Load operation history from a JSON file if it exists."""
-        if not os.path.exists(filename):
-            self.history = []
-            self._next_id = 1
-            return
-
+        """Replace history only after a complete successful read and validation."""
         with open(filename, "r", encoding="utf-8") as file:
-            self.history = json.load(file)
-
-        if self.history:
-            self._next_id = max(item["id"] for item in self.history) + 1
-        else:
-            self._next_id = 1
+            records = validate_records(json.load(file, parse_constant=reject_json_constant))
+        next_id = max((record["id"] for record in records), default=0) + 1
+        self.history = records
+        self._next_id = next_id
 
     def export_to_csv(self, filename):
-        """Export operation history to a CSV file."""
-        directory = os.path.dirname(filename)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-
-        with open(filename, "w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(
-                file,
-                fieldnames=[
-                    "id",
-                    "operand1",
-                    "operand2",
-                    "operator",
-                    "result",
-                    "timestamp",
-                ],
-            )
+        """Atomically export valid history to a CSV file."""
+        records = validate_records(self.history)
+        with atomic_text_file(filename, newline="") as file:
+            writer = csv.DictWriter(file, fieldnames=FIELDS)
             writer.writeheader()
-            writer.writerows(self.history)
+            writer.writerows(records)
 
     def search_by_operator(self, operator):
         """Return records that match the selected operator."""
@@ -125,6 +176,6 @@ class HistoryManager:
             "most_used_operator": most_used,
             "max_result": max(results),
             "min_result": min(results),
-            "average_result": sum(results) / len(results),
+            "average_result": statistics.mean(results),
             "positive_results": len(positive_results),
         }

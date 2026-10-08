@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from calculator.calculator import Calculator
+from calculator.paths import HISTORY_CSV, HISTORY_JSON
 from calculator.validators import VALID_OPERATORS, is_valid_number, is_valid_operator
 
 
@@ -27,8 +28,8 @@ class CalculatorApp:
         self.root.configure(bg=BG_COLOR)
 
         self.calculator = Calculator()
-        self.json_file = "data/history.json"
-        self.csv_file = "data/history.csv"
+        self.json_file = HISTORY_JSON
+        self.csv_file = HISTORY_CSV
 
         self.create_widgets()
 
@@ -235,19 +236,45 @@ class CalculatorApp:
 
     def save_history(self):
         """Save operation history to a JSON file."""
-        self.calculator.history_manager.save_to_json(self.json_file)
-        messagebox.showinfo("Success", "History saved to JSON")
+        try:
+            self.calculator.history_manager.save_to_json(self.json_file)
+        except (OSError, ValueError) as error:
+            self.show_storage_error("save history", error)
+        else:
+            messagebox.showinfo("Success", f"History saved to {self.json_file}")
 
     def load_history(self):
         """Load operation history from a JSON file."""
-        self.calculator.history_manager.load_from_json(self.json_file)
-        self.refresh_history_list()
-        messagebox.showinfo("Success", "History loaded from JSON")
+        try:
+            self.calculator.history_manager.load_from_json(self.json_file)
+        except (OSError, ValueError) as error:
+            self.show_storage_error("load history", error)
+        else:
+            self.refresh_history_list()
+            messagebox.showinfo("Success", "History loaded from JSON")
 
     def export_csv(self):
         """Export operation history to a CSV file."""
-        self.calculator.history_manager.export_to_csv(self.csv_file)
-        messagebox.showinfo("Success", "History exported to CSV")
+        try:
+            self.calculator.history_manager.export_to_csv(self.csv_file)
+        except (OSError, ValueError) as error:
+            self.show_storage_error("export history", error)
+        else:
+            messagebox.showinfo("Success", f"History exported to {self.csv_file}")
+
+    def show_storage_error(self, action, error):
+        """Report file errors without discarding the user's current history."""
+        if isinstance(error, FileNotFoundError):
+            detail = "No saved history file was found. Save JSON first."
+        elif isinstance(error, PermissionError):
+            detail = "Permission denied. Check that the data folder is writable."
+        elif isinstance(error, ValueError):
+            detail = f"Invalid history data: {error}"
+        else:
+            detail = f"File access failed: {error}"
+        messagebox.showerror(
+            "Storage error", f"Could not {action}.\n{detail}\nCurrent history remains in memory."
+        )
 
     def show_statistics(self):
         """Show calculated statistics in a message box."""

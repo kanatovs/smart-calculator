@@ -1,159 +1,99 @@
-# Smart Calculator with Operation History
+# Smart Calculator
 
-## Project Description
+Учебный калькулятор на Python с тёмным интерфейсом Tkinter, историей операций и экспортом в JSON/CSV. Арифметика, хранение истории и интерфейс разделены на модули. Для запуска не нужны сторонние Python-пакеты.
 
-Smart Calculator is a modular Python system for arithmetic calculations. It has a Tkinter graphical interface, operation history, JSON saving/loading, CSV export, statistics, input validation, logging, unit tests, and a package-based code structure.
+## Возможности
 
-The project is designed as a small real-world financial/calculation record system. It follows modular architecture: the GUI, calculator logic, operation classes, validation, decorators, and history storage are separated into different files.
+- Сложение, вычитание, умножение, деление, степень и остаток от деления.
+- Ввод целых и дробных чисел, включая `.5`, `+2` и `1e-3`.
+- История с идентификаторами и временем операций; поиск по оператору.
+- Сохранение и загрузка JSON, экспорт CSV.
+- Статистика: число операций, наиболее частый оператор, минимум, максимум, среднее и число положительных результатов.
+- Проверка входных чисел и результата: комплексные числа, NaN, бесконечность и переполнение не попадают в историю.
+- Проверка структуры JSON перед загрузкой; ошибка файла сохраняет текущую историю в памяти.
+- Запись JSON/CSV через временный файл: старый файл заменяется только после завершённой записи.
 
-## Features
+## Запуск
 
-- Addition, subtraction, multiplication, division, power, and modulus
-- Dark Tkinter GUI
-- Operation history
-- Save and load history with JSON
-- Export history to CSV
-- Search history by operator
-- Statistics for total operations, most used operator, max/min/average result, and positive results
-- Regex input validation
-- Custom logging decorator
-- Custom generator for history traversal
-- `lambda`, `map`, and `filter` for data transformation
-- Unit tests with `unittest`
+Нужен Python 3.11 или новее с Tkinter. На Windows Tkinter входит в обычный установщик Python; в Linux может потребоваться системный пакет `python3-tk` и графическая сессия.
 
-## Project Structure
-
-```text
-calculator_final/
-├── main.py
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── calculator/
-│   ├── __init__.py
-│   ├── calculator.py
-│   ├── decorators.py
-│   ├── history_manager.py
-│   ├── operations.py
-│   └── validators.py
-├── data/
-│   ├── history.csv
-│   └── history.json
-└── tests/
-    ├── __init__.py
-    └── test_calculator.py
-```
-
-## Architecture and Logic Flow
-
-1. The user enters two numbers in the GUI.
-2. `validators.py` checks the input using regex.
-3. The user selects an operator.
-4. `Calculator` chooses the correct operation class.
-5. The selected operation object calculates the result.
-6. `HistoryManager` saves the result as a dictionary record.
-7. History can be saved to JSON, loaded from JSON, exported to CSV, searched, or analyzed.
-8. Unit tests check operation logic, validation, history, JSON, CSV, generator, and functional tools.
-
-## OOP Design
-
-```text
-Operation (abstract base class)
-└── BinaryOperation
-    ├── Addition
-    ├── Subtraction
-    ├── Multiplication
-    ├── Division
-    ├── Power
-    └── Modulus
-```
-
-### OOP Principles Used
-
-- **Classes and objects:** calculator operations are represented as classes.
-- **Encapsulation:** operands are stored as protected attributes `_operand1` and `_operand2` and accessed through properties.
-- **Inheritance:** all concrete operations inherit from `BinaryOperation`, which inherits from `Operation`.
-- **Polymorphism:** every operation class has its own `calculate()` method.
-- **Association:** `Calculator` uses `HistoryManager` to store operation records.
-
-## Data Management
-
-The project uses these collections:
-
-- **List:** stores all history records.
-- **Dictionary:** stores one operation record with id, operands, operator, result, and timestamp.
-- **Set-like logic / fixed operator collection:** operator validation checks allowed operators.
-- **Tuple:** `VALID_OPERATORS` stores the fixed sequence of supported operators.
-
-The project uses file persistence:
-
-- `json` for saving and loading history.
-- `csv` for exporting history.
-- `os` for creating the `data/` directory when needed.
-
-## Functional Programming
-
-The project uses functional tools in `history_manager.py`:
-
-- `lambda` in result transformations.
-- `map()` in `get_results_only()`.
-- `filter()` in `filter_positive_results()`.
-
-## Decorator, Generator, and Regex
-
-- `@log_action` logs successful calculator operations to `data/logs.txt`.
-- `history_generator()` yields history records one by one.
-- `re.fullmatch()` validates numeric input.
-
-## Individual Contributions
-
-- **Alikhan:** GUI in `main.py`, user interaction, dark interface design, input fields, result display, search button, statistics window, final integration.
-- **Sabyrzhan:** calculator logic, OOP operation classes, history manager, JSON/CSV persistence, decorator, validation, generator, and unit tests.
-
-## Quality Assurance
-
-- Modular package structure with `__init__.py`
-- Clear function and class names
-- Docstrings for modules, classes, and main methods
-- Error handling for invalid input, invalid operators, division by zero, and modulus by zero
-- Unit tests for core logic and file operations
-
-## How to Run
+В каталоге проекта:
 
 ```bash
 python main.py
 ```
 
-On Windows, this can also work:
+На Windows можно использовать `py main.py`. Команда `python -m tkinter` позволяет проверить, что Tkinter установлен и может открыть окно.
 
-```bash
-py main.py
+Введите два числа и выберите операцию. `Save JSON` сохраняет историю, `Load JSON` заменяет её содержимым сохранённого файла, `Export CSV` создаёт таблицу. Кнопка `Clear History` очищает только память: чтобы сохранить пустую историю на диск, нажмите `Save JSON`.
+
+## Где находятся данные
+
+Приложение создаёт `data/` рядом с `main.py`, независимо от каталога, из которого его запустили:
+
+| Файл | Содержимое |
+| --- | --- |
+| `data/history.json` | Сохранённая история для загрузки в приложение |
+| `data/history.csv` | Последний экспорт CSV |
+| `data/logs.txt` | Журнал успешных вычислений |
+
+Эти файлы исключены из Git. Папка проекта должна быть доступна для записи. Если запись журнала недоступна, вычисление всё равно выполняется; предупреждение выводится в консоль. Ошибки сохранения, экспорта и загрузки показываются в окне приложения.
+
+История не сохраняется автоматически при закрытии: используйте `Save JSON`. Неудачная загрузка, включая отсутствие файла, не очищает текущую историю. Корректный пустой файл `[]` заменяет её пустой историей.
+
+В `examples/` находятся искусственные примеры JSON и CSV, а не пользовательские данные. Для демонстрации можно скопировать `examples/history.json` в `data/history.json`, предварительно сохранив свою историю, и нажать `Load JSON`.
+
+## Формат истории
+
+Корневой элемент JSON — массив записей. Каждая запись содержит ровно шесть полей:
+
+```json
+{
+    "id": 1,
+    "operand1": 12.0,
+    "operand2": 4.0,
+    "operator": "/",
+    "result": 3.0,
+    "timestamp": "2026-01-01 12:00:00"
+}
 ```
 
-## How to Run Tests
+Идентификаторы — положительные целые числа без повторов; числа — конечные `int` или `float`; оператор — один из `+`, `-`, `*`, `/`, `**`, `%`; время — `YYYY-MM-DD HH:MM:SS`. Проверяется весь файл перед заменой истории. Загрузка сохраняет порядок записей, следующий идентификатор берётся после максимального загруженного.
+
+## Проверки
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Expected result:
+Тесты проверяют арифметику, статистику, хранение и экспорт, переполнение, отрицательную дробную степень, неверный JSON, сохранение истории при ошибках, сбои записи и сообщения интерфейса. Тесты сообщений используют подменённые диалоги и не открывают окно. GitHub Actions запускает проверки на Windows и Ubuntu с Python 3.11–3.13.
+
+## Структура
 
 ```text
-Ran 18 tests
-OK
+main.py                       # Tkinter-интерфейс
+calculator/
+  calculator.py               # Выполнение и проверка операций
+  operations.py               # Иерархия Operation → BinaryOperation
+  validators.py               # Числа и допустимые операторы
+  history_manager.py          # История, статистика, JSON/CSV
+  paths.py                    # Пути к данным
+  decorators.py               # Журнал успешных операций
+examples/                     # Демонстрационные файлы
+tests/                        # unittest и регрессионные проверки
+.github/workflows/tests.yml   # Автоматические проверки
 ```
 
-## Requirements
+Проект показывает абстрактные классы, наследование и полиморфизм операций, композицию `Calculator` и `HistoryManager`, декоратор журнала, генератор истории, `map`/`filter` и регулярное выражение для ввода.
 
-No external packages are required. The project uses only Python standard library modules:
+## Ограничения
 
-- tkinter
-- unittest
-- json
-- csv
-- os
-- re
-- abc
-- datetime
-- functools
-- tempfile
+- Используется арифметика Python с плавающей точкой; возможны обычные ошибки округления, например `0.1 + 0.2`. Для денежных расчётов требуется другая модель точности.
+- Калькулятор работает только с действительными конечными результатами. Любая дробная степень отрицательного основания отклоняется; отдельной операции корня нет.
+- Одновременная работа нескольких экземпляров с одним файлом истории не поддерживается: при успешном сохранении последняя запись заменяет предыдущую.
+- Автоматические тесты не подтверждают внешний вид окна на всех размерах экрана.
+
+## Участники
+
+- **Alikhan:** интерфейс `main.py`, взаимодействие с пользователем, оформление, поля ввода, результат, поиск, окно статистики и интеграция.
+- **Sabyrzhan:** логика калькулятора, классы операций, история, JSON/CSV, декоратор, валидация, генератор и исходные тесты.

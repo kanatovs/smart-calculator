@@ -3,6 +3,8 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from calculator.calculator import Calculator
 from calculator.history_manager import HistoryManager
@@ -13,6 +15,13 @@ class TestCalculator(unittest.TestCase):
     """Test calculator logic, validation, history, and file I/O."""
 
     def setUp(self):
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_directory.cleanup)
+        log_patch = patch(
+            "calculator.decorators.ACTIVITY_LOG", Path(self.temp_directory.name) / "logs.txt"
+        )
+        log_patch.start()
+        self.addCleanup(log_patch.stop)
         self.calculator = Calculator()
 
     def test_addition(self):

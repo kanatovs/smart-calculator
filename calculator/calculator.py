@@ -10,7 +10,7 @@ from calculator.operations import (
     Power,
     Subtraction,
 )
-from calculator.validators import is_valid_operator
+from calculator.validators import is_valid_operator, require_finite_real
 
 
 class Calculator:
@@ -34,8 +34,16 @@ class Calculator:
         if not is_valid_operator(operator):
             raise ValueError("Invalid operator")
 
+        require_finite_real(operand1, "First operand")
+        require_finite_real(operand2, "Second operand")
         operation = operation_map[operator](operand1, operand2)
-        result = operation.calculate()
+        try:
+            result = operation.calculate()
+        except OverflowError as error:
+            raise ValueError("Result is too large; try smaller numbers") from error
+        except ZeroDivisionError as error:
+            raise ValueError("Zero cannot be raised to a negative power") from error
+        require_finite_real(result, "Result")
 
         self.history_manager.add_record(operand1, operand2, operator, result)
         return result
