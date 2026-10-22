@@ -71,6 +71,11 @@ class Power(BinaryOperation):
 
     def calculate(self):
         """Return the first operand raised to the power of the second operand."""
+        if self.operand1 < 0 and self.operand2 % 1 != 0:
+            raise ValueError("A negative number cannot be raised to a fractional power")
+        if isinstance(self.operand1, int) and isinstance(self.operand2, int):
+            # Check the finite numeric range before allocating an enormous integer.
+            float(self.operand1) ** self.operand2
         return self.operand1 ** self.operand2
 
 
