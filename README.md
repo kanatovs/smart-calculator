@@ -1,51 +1,51 @@
 # Smart Calculator
 
-Учебный калькулятор на Python с тёмным интерфейсом Tkinter, историей операций и экспортом в JSON/CSV. Арифметика, хранение истории и интерфейс разделены на модули. Для запуска не нужны сторонние Python-пакеты.
+A Python calculator with a dark Tkinter interface, operation history, and JSON/CSV persistence. Arithmetic, history storage, and the interface live in separate modules. No third-party Python packages are required.
 
-## Возможности
+## Features
 
-- Сложение, вычитание, умножение, деление, степень и остаток от деления.
-- Ввод целых и дробных чисел, включая `.5`, `+2` и `1e-3`.
-- История с идентификаторами и временем операций; поиск по оператору.
-- Сохранение и загрузка JSON, экспорт CSV.
-- Статистика: число операций, наиболее частый оператор, минимум, максимум, среднее и число положительных результатов.
-- Проверка входных чисел и результата: комплексные числа, NaN, бесконечность и переполнение не попадают в историю.
-- Проверка структуры JSON перед загрузкой; ошибка файла сохраняет текущую историю в памяти.
-- Запись JSON/CSV через временный файл: старый файл заменяется только после завершённой записи.
+- Addition, subtraction, multiplication, division, powers, and modulus.
+- Integer and decimal input, including `.5`, `+2`, and `1e-3`.
+- Operation history with identifiers and timestamps; search by operator.
+- Save and load JSON; export CSV.
+- Statistics: operation count, most frequent operator, minimum, maximum, mean, and positive result count.
+- Operand and result validation: complex values, booleans, NaN, infinity, and overflowing values are rejected before entering history.
+- Full JSON structure validation before replacing the history in memory.
+- Atomic JSON/CSV writes: the destination is replaced only after the temporary file is written, flushed, and synchronized successfully.
 
-## Запуск
+## Run
 
-Нужен Python 3.11 или новее с Tkinter. На Windows Tkinter входит в обычный установщик Python; в Linux может потребоваться системный пакет `python3-tk` и графическая сессия.
+Use Python 3.11 or newer with Tkinter. The standard Windows Python installer includes Tkinter; Linux may require the system package `python3-tk` and a graphical session. CI covers Python 3.11–3.13 on Windows and Ubuntu.
 
-В каталоге проекта:
+From the project directory:
 
 ```bash
 python main.py
 ```
 
-На Windows можно использовать `py main.py`. Команда `python -m tkinter` позволяет проверить, что Tkinter установлен и может открыть окно.
+On Windows, `py main.py` is another option. Run `python -m tkinter` to check that Tkinter can open a window.
 
-Введите два числа и выберите операцию. `Save JSON` сохраняет историю, `Load JSON` заменяет её содержимым сохранённого файла, `Export CSV` создаёт таблицу. Кнопка `Clear History` очищает только память: чтобы сохранить пустую историю на диск, нажмите `Save JSON`.
+Enter two numbers and select an operator. `Save JSON` saves the history, `Load JSON` replaces it with the saved records, and `Export CSV` creates a table. `Clear History` only clears memory; use `Save JSON` afterward to save an empty history.
 
-## Где находятся данные
+## Data files
 
-Приложение создаёт `data/` рядом с `main.py`, независимо от каталога, из которого его запустили:
+The application creates `data/` beside `main.py`, independently of the shell's working directory:
 
-| Файл | Содержимое |
+| File | Contents |
 | --- | --- |
-| `data/history.json` | Сохранённая история для загрузки в приложение |
-| `data/history.csv` | Последний экспорт CSV |
-| `data/logs.txt` | Журнал успешных вычислений |
+| `data/history.json` | Saved history available through `Load JSON` |
+| `data/history.csv` | Most recent CSV export |
+| `data/logs.txt` | Log of successful calculator calls |
 
-Эти файлы исключены из Git. Папка проекта должна быть доступна для записи. Если запись журнала недоступна, вычисление всё равно выполняется; предупреждение выводится в консоль. Ошибки сохранения, экспорта и загрузки показываются в окне приложения.
+These runtime files are ignored by Git. The project directory must be writable for persistence. If logging fails, the calculation still succeeds and a warning is written to the console. Save, export, and load errors appear in an application dialog.
 
-История не сохраняется автоматически при закрытии: используйте `Save JSON`. Неудачная загрузка, включая отсутствие файла, не очищает текущую историю. Корректный пустой файл `[]` заменяет её пустой историей.
+History is not loaded at startup or saved automatically on exit. Use `Load JSON` and `Save JSON` explicitly. A failed load, including a missing file, preserves both the current history and its next identifier. A valid empty JSON array, `[]`, explicitly replaces it with empty history.
 
-В `examples/` находятся искусственные примеры JSON и CSV, а не пользовательские данные. Для демонстрации можно скопировать `examples/history.json` в `data/history.json`, предварительно сохранив свою историю, и нажать `Load JSON`.
+The [JSON example](examples/history.json) and [CSV example](examples/history.csv) contain synthetic records. To try the JSON example, first back up any existing history, create `data/` if needed, copy `examples/history.json` to `data/history.json`, and select `Load JSON`. Tests use temporary directories and never overwrite runtime data.
 
-## Формат истории
+## History format
 
-Корневой элемент JSON — массив записей. Каждая запись содержит ровно шесть полей:
+The JSON root must be an array of records. Each record contains exactly six fields:
 
 ```json
 {
@@ -58,42 +58,45 @@ python main.py
 }
 ```
 
-Идентификаторы — положительные целые числа без повторов; числа — конечные `int` или `float`; оператор — один из `+`, `-`, `*`, `/`, `**`, `%`; время — `YYYY-MM-DD HH:MM:SS`. Проверяется весь файл перед заменой истории. Загрузка сохраняет порядок записей, следующий идентификатор берётся после максимального загруженного.
+Identifiers must be unique positive integers. Operands and results must be finite Python `int` or `float` values within the supported floating-point range; booleans are rejected. Operators must be `+`, `-`, `*`, `/`, `**`, or `%`. Timestamps use `YYYY-MM-DD HH:MM:SS` and must represent valid dates and times. Validation checks the entire file before replacing history, preserves record order, and sets the next identifier after the largest loaded identifier. Imported results are validated as numbers; they are not recalculated from their operands.
 
-## Проверки
+## Checks
 
 ```bash
 python -m unittest discover -s tests -v
+python -m compileall -q calculator main.py tests
 ```
 
-Тесты проверяют арифметику, статистику, хранение и экспорт, переполнение, отрицательную дробную степень, неверный JSON, сохранение истории при ошибках, сбои записи и сообщения интерфейса. Тесты сообщений используют подменённые диалоги и не открывают окно. GitHub Actions запускает проверки на Windows и Ubuntu с Python 3.11–3.13.
+Tests cover arithmetic, statistics, JSON and CSV contents, overflow, negative fractional powers, invalid JSON and encoding, failed loads, interrupted writes, failed file replacement, logging errors, and storage error dialogs. Dialog tests substitute message boxes and do not open a window. The [GitHub Actions workflow](.github/workflows/tests.yml) runs the unit tests on Windows and Ubuntu with Python 3.11, 3.12, and 3.13.
 
-## Структура
+## Structure
 
 ```text
-main.py                       # Tkinter-интерфейс
+main.py                       # Tkinter interface
 calculator/
-  calculator.py               # Выполнение и проверка операций
-  operations.py               # Иерархия Operation → BinaryOperation
-  validators.py               # Числа и допустимые операторы
-  history_manager.py          # История, статистика, JSON/CSV
-  paths.py                    # Пути к данным
-  decorators.py               # Журнал успешных операций
-examples/                     # Демонстрационные файлы
-tests/                        # unittest и регрессионные проверки
-.github/workflows/tests.yml   # Автоматические проверки
+  calculator.py               # Operation execution and validation
+  operations.py               # Operation and BinaryOperation class hierarchy
+  validators.py               # Numeric input and supported operators
+  history_manager.py          # History, statistics, JSON/CSV
+  paths.py                    # Stable runtime paths
+  decorators.py               # Successful operation log
+examples/                     # Synthetic history files
+tests/                        # Unit and regression tests
+.github/workflows/tests.yml   # Automated checks
 ```
 
-Проект показывает абстрактные классы, наследование и полиморфизм операций, композицию `Calculator` и `HistoryManager`, декоратор журнала, генератор истории, `map`/`filter` и регулярное выражение для ввода.
+The project demonstrates abstract classes, inheritance and polymorphism, composition of `Calculator` and `HistoryManager`, a logging decorator, a history generator, `map`/`filter`, and regular expressions for input validation.
 
-## Ограничения
+## Limitations
 
-- Используется арифметика Python с плавающей точкой; возможны обычные ошибки округления, например `0.1 + 0.2`. Для денежных расчётов требуется другая модель точности.
-- Калькулятор работает только с действительными конечными результатами. Любая дробная степень отрицательного основания отклоняется; отдельной операции корня нет.
-- Одновременная работа нескольких экземпляров с одним файлом истории не поддерживается: при успешном сохранении последняя запись заменяет предыдущую.
-- Автоматические тесты не подтверждают внешний вид окна на всех размерах экрана.
+- The GUI converts input to Python `float`. Normal rounding applies, such as the result of `0.1 + 0.2`; this is not a financial precision model.
+- The calculator accepts only finite real operands and results. Integers too large to convert to a finite float are also rejected. Extremely large integer powers are checked before allocating their result.
+- Fractional powers of negative bases are rejected, including mathematically real roots such as `(-8) ** (1/3)`. There is no separate root operation.
+- Multiple instances writing the same history file are not coordinated; the last successful save replaces the previous file.
+- Atomic replacement preserves the old file on ordinary write failures. It does not provide backups or a guarantee against every filesystem or power failure.
+- Automated tests do not verify the window's appearance on every screen size.
 
-## Участники
+## Contributors
 
-- **Alikhan:** интерфейс `main.py`, взаимодействие с пользователем, оформление, поля ввода, результат, поиск, окно статистики и интеграция.
-- **Sabyrzhan:** логика калькулятора, классы операций, история, JSON/CSV, декоратор, валидация, генератор и исходные тесты.
+- **Alikhan:** `main.py`, user interaction, styling, input fields, result display, search, statistics window, and integration.
+- **Sabyrzhan:** calculator logic, operation classes, history manager, JSON/CSV, decorator, validation, generator, and original tests.

@@ -126,6 +126,15 @@ class HistorySafetyTests(unittest.TestCase):
             self.manager.load_from_json(self.path)
         self.assertEqual(self.manager.get_all(), self.original)
 
+    def test_invalid_utf8_preserves_history_file_and_next_id(self):
+        invalid_data = b'[\xff]'
+        self.path.write_bytes(invalid_data)
+        with self.assertRaises(UnicodeDecodeError):
+            self.manager.load_from_json(self.path)
+        self.assertEqual(self.manager.get_all(), self.original)
+        self.assertEqual(self.path.read_bytes(), invalid_data)
+        self.assertEqual(self.manager.add_record(1, 1, "+", 2)["id"], 2)
+
     def test_non_array_json_is_rejected(self):
         for data in ({}, None, "history", 123):
             with self.subTest(data=data):
@@ -211,6 +220,18 @@ class HistorySafetyTests(unittest.TestCase):
                 self.manager.save_to_json(self.path)
         self.assertEqual(self.path.read_bytes(), original_bytes)
         self.assertEqual(list(self.path.parent.iterdir()), [self.path])
+
+    def test_sync_failure_preserves_existing_json_and_csv(self):
+        for method in (self.manager.save_to_json, self.manager.export_to_csv):
+            with self.subTest(method=method.__name__):
+                original_bytes = b"previous saved data\n"
+                self.path.write_bytes(original_bytes)
+                with patch("calculator.history_manager.os.fsync", side_effect=OSError("disk full")):
+                    with self.assertRaises(OSError):
+                        method(self.path)
+                self.assertEqual(self.path.read_bytes(), original_bytes)
+                self.assertEqual(list(self.path.parent.iterdir()), [self.path])
+                self.assertEqual(self.manager.get_all(), self.original)
 
     def test_csv_write_failure_preserves_existing_export(self):
         self.path.write_text("existing CSV", encoding="utf-8")
